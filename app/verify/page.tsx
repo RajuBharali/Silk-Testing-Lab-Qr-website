@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { useVerifyPageSecurity, getSecureHeaders } from "@/lib/useVerifyPageSecurity";
 import {
   Phone,
   ShieldCheck,
@@ -41,17 +42,7 @@ const resolveImageUrl = (path: string | null): string | null => {
 };
 
 const getHeaders = () => {
-  const headers: Record<string, string> = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json'
-  };
-
-  const apiKey = process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'admin_key_2026_sualkuchitat_xK9pL2mN_admin';
-  if (apiKey) {
-    headers['x-api-key'] = apiKey;
-  }
-
-  return headers;
+  return getSecureHeaders();
 };
 
 // Define Types based on API response
@@ -288,12 +279,27 @@ function VerifyContent() {
   const qr_id = searchParams.get("qr_id");
   const url = searchParams.get("url");
 
+  // Security check hook
+  const securityCheck = useVerifyPageSecurity(qr_id, true);
+
   const [loading, setLoading] = React.useState(true);
   const [data, setData] = React.useState<VerificationData | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     async function verifyProduct() {
+      // Security check: wait for security validation
+      if (securityCheck.loading) {
+        return;
+      }
+
+      // Block if security check failed
+      if (!securityCheck.passed) {
+        setError(securityCheck.message || "Security validation failed. Please try again.");
+        setLoading(false);
+        return;
+      }
+
       // If no qr_id is provided, check if we are in preview mode or just load mock data to prevent crashing
       if (!qr_id || qr_id === "undefined") {
         console.log("No QR ID provided. Falling back to demonstration/preview mode.");
@@ -334,7 +340,7 @@ function VerifyContent() {
     }
 
     verifyProduct();
-  }, [qr_id, url]);
+  }, [qr_id, url, securityCheck]);
 
   if (loading) {
     return (
@@ -352,18 +358,31 @@ function VerifyContent() {
   }
 
   if (error || !data) {
+    const isSecurityError = error && (error.includes('rate') || error.includes('suspicious') || error.includes('Security'));
+    const errorTitle = isSecurityError ? 'Too Many Requests' : 'Verification Failed';
+    const errorMessage = error || "We could not verify the authenticity of this product. Please scan the QR code again or contact support.";
+
     return (
       <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-6">
         <div className="max-w-md w-full bg-white border border-red-100 rounded-[32px] p-8 text-center shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 -mr-20 -mt-20 w-40 h-40 bg-red-50 rounded-full blur-3xl opacity-50" />
-          <XCircle className="h-20 w-20 text-red-500 mx-auto mb-6" />
-          <h1 className="text-2xl font-black uppercase tracking-tight mb-3 text-slate-900 leading-tight">Verification Failed</h1>
+          {isSecurityError ? (
+            <AlertTriangle className="h-20 w-20 text-orange-500 mx-auto mb-6" />
+          ) : (
+            <XCircle className="h-20 w-20 text-red-500 mx-auto mb-6" />
+          )}
+          <h1 className="text-2xl font-black uppercase tracking-tight mb-3 text-slate-900 leading-tight">{errorTitle}</h1>
           <p className="text-slate-500 font-medium mb-8 text-sm leading-relaxed">
-            {error || "We could not verify the authenticity of this product. Please scan the QR code again or contact support."}
+            {errorMessage}
           </p>
+          {isSecurityError && (
+            <p className="text-xs text-slate-400 mb-6 italic">
+              This is a security measure to prevent automated access. Please wait a moment and try again.
+            </p>
+          )}
           <button
             onClick={() => window.location.reload()}
-            className="w-full h-12 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold transition active:scale-95 shadow-lg shadow-red-500/20"
+            className={`w-full h-12 ${isSecurityError ? 'bg-orange-600 hover:bg-orange-700 shadow-lg shadow-orange-500/20' : 'bg-red-600 hover:bg-red-700 shadow-lg shadow-red-500/20'} text-white rounded-2xl font-bold transition active:scale-95`}
           >
             Try Again
           </button>
