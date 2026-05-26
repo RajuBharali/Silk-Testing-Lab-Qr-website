@@ -23,9 +23,7 @@ import {
   Download,
 } from "lucide-react";
 
-const API_BASE_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-  ? `http://localhost:5000/api`
-  : (process.env.NEXT_PUBLIC_API_URL || "https://api.sualkuchisilktestlab.com/api");
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.sualkuchisilktestlab.com/api";
 
 const PRODUCTION_IMG_BASE = "https://sualkuchitatsilpa.org/V1/panel-admin/";
 
@@ -318,23 +316,59 @@ function VerifyContent() {
       try {
         setLoading(true);
         const fetchUrl = `${API_BASE_URL}/testing/verify?qr_id=${qr_id}&url=${url || ""}`;
-        const response = await fetch(fetchUrl, { headers: getHeaders() });
+        
+        console.log("🔍 Attempting to fetch from API...");
+        console.log("📍 API URL:", API_BASE_URL);
+        console.log("🔑 QR ID:", qr_id);
+        console.log("🌐 Full URL:", fetchUrl);
+        console.log("📦 Headers:", {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'x-api-key': '***hidden***'
+        });
+        
+        const response = await fetch(fetchUrl, { 
+          headers: getHeaders()
+        });
+
+        console.log("✅ Fetch response received");
+        console.log("📊 Status:", response.status, response.statusText);
+        console.log("📋 Headers:", {
+          'content-type': response.headers.get('content-type'),
+          'access-control-allow-origin': response.headers.get('access-control-allow-origin')
+        });
 
         if (!response.ok) {
-          throw new Error(`Server returned code ${response.status}`);
+          const errorText = await response.text();
+          console.error("❌ Response not OK:", errorText);
+          throw new Error(`Server returned code ${response.status}: ${errorText}`);
         }
 
         const result = await response.json();
+        console.log("✅ JSON parsed successfully:", result);
 
         if (result.success) {
+          console.log("✅ Verification successful!");
           setData(result);
         } else {
+          console.error("❌ Verification failed:", result.message);
           setError(result.message || "Failed to verify product");
         }
-      } catch (err) {
-        console.error("Verification error:", err);
-        setError("Network error. Could not connect to verification server.");
-      } finally {
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.error("❌ Verification error:", errorMessage);
+        
+        // Detect specific error types
+        if (errorMessage.includes("Failed to fetch")) {
+          console.error("🔴 CORS or Network Error - Possible causes:");
+          console.error("   1. Backend API is not running");
+          console.error("   2. CORS headers are not set on backend");
+          console.error("   3. Network connectivity issue");
+          console.error("   4. API domain is unreachable");
+          setError("Failed to connect to API. Please check: 1) Is backend running? 2) Does it have CORS headers?");
+        } else {
+          setError("Network error. Could not connect to verification server.");
+        }
         setLoading(false);
       }
     }
