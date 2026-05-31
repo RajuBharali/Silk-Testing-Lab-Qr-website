@@ -338,21 +338,25 @@ function VerifyContent() {
           'access-control-allow-origin': response.headers.get('access-control-allow-origin')
         });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("❌ Response not OK:", errorText);
-          throw new Error(`Server returned code ${response.status}: ${errorText}`);
+        let result;
+        try {
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            result = await response.json();
+          }
+        } catch (jsonErr) {
+          console.error("Failed to parse JSON response:", jsonErr);
         }
 
-        const result = await response.json();
-        console.log("✅ JSON parsed successfully:", result);
-
-        if (result.success) {
+        if (response.ok && result && result.success) {
           console.log("✅ Verification successful!");
           setData(result);
+          setLoading(false);
         } else {
-          console.error("❌ Verification failed:", result.message);
-          setError(result.message || "Failed to verify product");
+          const msg = result?.message || `Verification failed (Status ${response.status})`;
+          console.error("❌ Verification failed:", msg);
+          setError(msg);
+          setLoading(false);
         }
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : String(err);
@@ -393,33 +397,95 @@ function VerifyContent() {
 
   if (error || !data) {
     const isSecurityError = error && (error.includes('rate') || error.includes('suspicious') || error.includes('Security'));
-    const errorTitle = isSecurityError ? 'Too Many Requests' : 'Verification Failed';
-    const errorMessage = error || "We could not verify the authenticity of this product. Please scan the QR code again or contact support.";
+    const isNotFoundError = error && (
+      error.includes('Invalid QR ID or URL') || 
+      error.includes('not found') || 
+      error.includes('404') ||
+      error.includes('failed. Invalid') ||
+      error.includes('Verification failed')
+    );
+
+    const errorTitle = isSecurityError 
+      ? 'Too Many Requests' 
+      : (isNotFoundError ? 'No Data Found' : 'Verification Failed');
+
+    const errorMessage = isNotFoundError 
+      ? `No data found for this QR ID: ${qr_id || 'N/A'}`
+      : (error || "We could not verify the authenticity of this product. Please scan the QR code again or contact support.");
 
     return (
-      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white border border-red-100 rounded-[32px] p-8 text-center shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-40 h-40 bg-red-50 rounded-full blur-3xl opacity-50" />
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white border border-slate-200/80 rounded-[32px] p-8 text-center shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-red-500 via-orange-400 to-red-500" />
+          
           {isSecurityError ? (
-            <AlertTriangle className="h-20 w-20 text-orange-500 mx-auto mb-6" />
+            <AlertTriangle className="h-16 w-16 text-orange-500 mx-auto mb-5" />
           ) : (
-            <XCircle className="h-20 w-20 text-red-500 mx-auto mb-6" />
+            <XCircle className="h-16 w-16 text-red-500 mx-auto mb-5" />
           )}
-          <h1 className="text-2xl font-black uppercase tracking-tight mb-3 text-slate-900 leading-tight">{errorTitle}</h1>
-          <p className="text-slate-500 font-medium mb-8 text-sm leading-relaxed">
-            {errorMessage}
-          </p>
-          {isSecurityError && (
-            <p className="text-xs text-slate-400 mb-6 italic">
-              This is a security measure to prevent automated access. Please wait a moment and try again.
+
+          <h1 className="text-xl font-sans font-black text-slate-800 tracking-tight mb-2">
+            {errorTitle}
+          </h1>
+          
+          <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4.5 mb-6 text-left">
+            <p className="text-slate-800 text-xs font-bold leading-relaxed break-all">
+              {errorMessage}
             </p>
-          )}
-          <button
-            onClick={() => window.location.reload()}
-            className={`w-full h-12 ${isSecurityError ? 'bg-orange-600 hover:bg-orange-700 shadow-lg shadow-orange-500/20' : 'bg-red-600 hover:bg-red-700 shadow-lg shadow-red-500/20'} text-white rounded-2xl font-bold transition active:scale-95`}
-          >
-            Try Again
-          </button>
+            {isNotFoundError && (
+              <p className="text-slate-500 text-[11px] font-medium leading-relaxed mt-2.5">
+                This QR ID is not registered in the Sualkuchi Silk Testing Laboratory register. If you suspect this tag is fraudulent, please contact the official lab authority.
+              </p>
+            )}
+          </div>
+
+          {/* Official Contact Box */}
+          <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-6">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+              Official Laboratory Desk
+            </p>
+            
+            <div className="space-y-2.5">
+              <a
+                href="tel:9394552449"
+                className="flex items-center justify-center gap-2 h-10 w-full bg-white border border-slate-200/60 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-700 transition"
+              >
+                <Phone className="w-4 h-4 text-[#00205b]" />
+                <span>Call: 9394552449</span>
+              </a>
+
+              <button
+                onClick={() => window.open('https://wa.me/919394552449', '_blank')}
+                className="flex items-center justify-center gap-2 h-10 w-full bg-green-50 border border-green-200/60 hover:bg-green-100 text-[#047857] rounded-xl text-xs font-bold transition"
+              >
+                <img
+                  src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg"
+                  alt="WhatsApp"
+                  className="w-4.5 h-4.5"
+                />
+                <span>WhatsApp support</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => window.location.href = '/'}
+              className="flex-1 h-11 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition active:scale-95 border border-slate-200/40"
+            >
+              Go Home
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className={`flex-1 h-11 ${
+                isSecurityError 
+                  ? 'bg-orange-600 hover:bg-orange-700 shadow-sm' 
+                  : 'bg-red-600 hover:bg-red-700 shadow-sm'
+              } text-white rounded-xl text-xs font-bold transition active:scale-95`}
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -848,7 +914,7 @@ function VerifyContent() {
               />
             </div>
             <div>
-              <h1 className="text-xl md:text-2xl font-serif font-extrabold leading-tight tracking-wide text-white">
+              <h1 className="text-xl md:text-2xl font-sans font-extrabold leading-tight tracking-wide text-white">
                 Sualkuchi Silk
               </h1>
               <p className="text-[#cbae6c] font-sans text-xs md:text-sm font-bold uppercase tracking-widest mt-0.5">
@@ -921,10 +987,10 @@ function VerifyContent() {
                 <path d="M-10,100 C30,40 70,60 110,100 Z" fill="#aa7c11" />
                 <path d="M-10,0 C20,50 60,30 110,0 Z" fill="#aa7c11" />
               </svg>
-              <p className="font-serif text-xs md:text-sm text-[#00205b] font-bold tracking-wide relative z-10">
+              <p className="font-sans text-xs md:text-sm text-[#00205b] font-bold tracking-wide relative z-10">
                 Authentic & Tested
               </p>
-              <h3 className="font-serif text-base md:text-[17px] font-extrabold text-[#00205b] tracking-tight mt-1 relative z-10">
+              <h3 className="font-sans text-base md:text-[17px] font-extrabold text-[#00205b] tracking-tight mt-1 relative z-10">
                 Handloom Silk Products of Sualkuchi
               </h3>
               <p className="text-slate-500 text-[10px] md:text-xs font-medium tracking-wide mt-1.5 relative z-10">

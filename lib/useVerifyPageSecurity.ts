@@ -123,7 +123,7 @@ export const getSecureHeaders = () => {
   const headers: Record<string, string> = {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest',
+    // 'X-Requested-With': 'XMLHttpRequest', // Commented out to prevent CORS preflight blockage
   };
 
   const apiKey = process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'admin_key_2026_sualkuchitat_xK9pL2mN_admin';
@@ -132,10 +132,10 @@ export const getSecureHeaders = () => {
   }
 
   // Add timestamp for request freshness check
-  headers['X-Request-Time'] = Math.floor(Date.now() / 1000).toString();
+  // headers['X-Request-Time'] = Math.floor(Date.now() / 1000).toString(); // Commented out to prevent CORS preflight blockage
 
   // Add browser fingerprint (not a real fingerprint, just for bot detection)
-  headers['X-Client-Signature'] = createRequestSignature('api-call');
+  // headers['X-Client-Signature'] = createRequestSignature('api-call'); // Commented out to prevent CORS preflight blockage
 
   return headers;
 };
