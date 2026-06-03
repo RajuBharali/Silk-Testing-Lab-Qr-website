@@ -178,7 +178,7 @@ function WovenLogo() {
 
 
 
-// Warp icon - Loom threads representation
+// Warp icon - Loom threads representation -- new
 const WarpIcon = () => (
   <svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-600 fill-none stroke-current" strokeWidth="1.5">
     <rect x="4" y="3" width="16" height="18" rx="2" />
@@ -319,7 +319,7 @@ function VerifyContent() {
         if (qr_id && qr_id !== "undefined") params.set("qr_id", qr_id);
         if (url && url !== "undefined") params.set("url", url);
         const fetchUrl = `${API_BASE_URL}/testing/verify?${params.toString()}`;
-        
+
         console.log("🔍 Attempting to fetch from API...");
         console.log("📍 API URL:", API_BASE_URL);
         console.log("🔑 QR ID:", qr_id);
@@ -330,8 +330,8 @@ function VerifyContent() {
           'Content-Type': 'application/json',
           'x-api-key': '***hidden***'
         });
-        
-        const response = await fetch(fetchUrl, { 
+
+        const response = await fetch(fetchUrl, {
           headers: getHeaders()
         });
 
@@ -365,7 +365,7 @@ function VerifyContent() {
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         console.error("❌ Verification error:", errorMessage);
-        
+
         // Detect specific error types
         if (errorMessage.includes("Failed to fetch")) {
           console.error("🔴 CORS or Network Error - Possible causes:");
@@ -402,28 +402,28 @@ function VerifyContent() {
   if (error || !data) {
     const isSecurityError = error && (error.includes('rate') || error.includes('suspicious') || error.includes('Security'));
     const isNotFoundError = error && (
-      error.includes('Invalid QR ID or URL') || 
-      error.includes('not found') || 
+      error.includes('Invalid QR ID or URL') ||
+      error.includes('not found') ||
       error.includes('404') ||
       error.includes('failed. Invalid') ||
       error.includes('Verification failed')
     );
 
-    const errorTitle = isSecurityError 
-      ? 'Too Many Requests' 
+    const errorTitle = isSecurityError
+      ? 'Too Many Requests'
       : (isNotFoundError ? 'No Data Found' : 'Verification Failed');
 
-    const errorMessage = isNotFoundError 
+    const errorMessage = isNotFoundError
       ? (qr_id && qr_id !== "undefined"
-          ? `No data found for this QR ID: ${qr_id}`
-          : `No data found for this URL token: ${url || 'N/A'}`)
+        ? `No data found for this QR ID: ${qr_id}`
+        : `No data found for this URL token: ${url || 'N/A'}`)
       : (error || "We could not verify the authenticity of this product. Please scan the QR code again or contact support.");
 
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
         <div className="max-w-md w-full bg-white border border-slate-200/80 rounded-[32px] p-8 text-center shadow-xl relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-red-500 via-orange-400 to-red-500" />
-          
+
           {isSecurityError ? (
             <AlertTriangle className="h-16 w-16 text-orange-500 mx-auto mb-5" />
           ) : (
@@ -433,7 +433,7 @@ function VerifyContent() {
           <h1 className="text-xl font-sans font-black text-slate-800 tracking-tight mb-2">
             {errorTitle}
           </h1>
-          
+
           <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4.5 mb-6 text-left">
             <p className="text-slate-800 text-xs font-bold leading-relaxed break-all">
               {errorMessage}
@@ -450,7 +450,7 @@ function VerifyContent() {
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
               Official Laboratory Desk
             </p>
-            
+
             <div className="space-y-2.5">
               <a
                 href="tel:9394552449"
@@ -483,11 +483,10 @@ function VerifyContent() {
             </button>
             <button
               onClick={() => window.location.reload()}
-              className={`flex-1 h-11 ${
-                isSecurityError 
-                  ? 'bg-orange-600 hover:bg-orange-700 shadow-sm' 
+              className={`flex-1 h-11 ${isSecurityError
+                  ? 'bg-orange-600 hover:bg-orange-700 shadow-sm'
                   : 'bg-red-600 hover:bg-red-700 shadow-sm'
-              } text-white rounded-xl text-xs font-bold transition active:scale-95`}
+                } text-white rounded-xl text-xs font-bold transition active:scale-95`}
             >
               Try Again
             </button>
