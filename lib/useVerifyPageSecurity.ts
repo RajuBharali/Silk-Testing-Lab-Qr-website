@@ -61,8 +61,8 @@ export const useVerifyPageSecurity = (
         const config = getSecurityConfig();
         let passed = true;
         const messages: string[] = [];
-        let qrValidation = { valid: true, reason: undefined as string | undefined };
-        let urlValidation = { valid: true, reason: undefined as string | undefined };
+        let qrValidation: { valid: boolean; reason?: string } = { valid: true };
+        let urlValidation: { valid: boolean; reason?: string } = { valid: true };
 
         // 1. Check rate limiting
         const rateLimitCheck = checkRateLimit();
