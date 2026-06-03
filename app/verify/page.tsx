@@ -278,7 +278,7 @@ function VerifyContent() {
   const url = searchParams.get("url");
 
   // Security check hook
-  const securityCheck = useVerifyPageSecurity(qr_id, true);
+  const securityCheck = useVerifyPageSecurity(qr_id, url, true);
 
   const [loading, setLoading] = React.useState(true);
   const [data, setData] = React.useState<VerificationData | null>(null);
@@ -298,9 +298,9 @@ function VerifyContent() {
         return;
       }
 
-      // If no qr_id is provided, check if we are in preview mode or just load mock data to prevent crashing
-      if (!qr_id || qr_id === "undefined") {
-        console.log("No QR ID provided. Falling back to demonstration/preview mode.");
+      // If neither qr_id nor url is provided, check if we are in preview mode or just load mock data to prevent crashing
+      if ((!qr_id || qr_id === "undefined") && (!url || url === "undefined")) {
+        console.log("No QR ID or URL token provided. Falling back to demonstration/preview mode.");
         setData(MOCK_DATA);
         setLoading(false);
         return;
@@ -315,11 +315,15 @@ function VerifyContent() {
 
       try {
         setLoading(true);
-        const fetchUrl = `${API_BASE_URL}/testing/verify?qr_id=${qr_id}&url=${url || ""}`;
+        const params = new URLSearchParams();
+        if (qr_id && qr_id !== "undefined") params.set("qr_id", qr_id);
+        if (url && url !== "undefined") params.set("url", url);
+        const fetchUrl = `${API_BASE_URL}/testing/verify?${params.toString()}`;
         
         console.log("🔍 Attempting to fetch from API...");
         console.log("📍 API URL:", API_BASE_URL);
         console.log("🔑 QR ID:", qr_id);
+        console.log("🌐 URL Token:", url);
         console.log("🌐 Full URL:", fetchUrl);
         console.log("📦 Headers:", {
           'Accept': 'application/json',
@@ -410,7 +414,9 @@ function VerifyContent() {
       : (isNotFoundError ? 'No Data Found' : 'Verification Failed');
 
     const errorMessage = isNotFoundError 
-      ? `No data found for this QR ID: ${qr_id || 'N/A'}`
+      ? (qr_id && qr_id !== "undefined"
+          ? `No data found for this QR ID: ${qr_id}`
+          : `No data found for this URL token: ${url || 'N/A'}`)
       : (error || "We could not verify the authenticity of this product. Please scan the QR code again or contact support.");
 
     return (

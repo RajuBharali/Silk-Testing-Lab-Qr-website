@@ -76,6 +76,48 @@ export const validateQrId = (qrId: string): { valid: boolean; reason?: string } 
 };
 
 /**
+ * Validate URL token format - must start with pt- and contain only alphanumeric, underscores, hyphens
+ */
+export const validateUrlToken = (urlToken: string): { valid: boolean; reason?: string } => {
+  if (!urlToken) {
+    return { valid: false, reason: 'URL token is empty' };
+  }
+
+  const trimmed = urlToken.trim();
+
+  // Length check: should be between 5 and 100 characters
+  if (trimmed.length < 5 || trimmed.length > 100) {
+    return { valid: false, reason: 'Invalid URL token length' };
+  }
+
+  // Must start with pt-
+  if (!trimmed.startsWith('pt-')) {
+    return { valid: false, reason: 'Invalid URL token prefix' };
+  }
+
+  // Allow alphanumeric, underscores, and hyphens after the pt- prefix
+  const validPattern = /^pt-[a-zA-Z0-9_-]+$/;
+  if (!validPattern.test(trimmed)) {
+    return { valid: false, reason: 'URL token contains invalid characters' };
+  }
+
+  // Check for suspicious patterns
+  const suspiciousPatterns = [
+    /['";]/,  // Quotes or semicolons
+    /(<|>|=|--|\|\|)/,  // Script/SQL patterns
+    /(union|select|insert|delete|drop|exec|script)/i,  // SQL/Script keywords
+  ];
+
+  for (const pattern of suspiciousPatterns) {
+    if (pattern.test(trimmed)) {
+      return { valid: false, reason: 'Suspicious characters detected' };
+    }
+  }
+
+  return { valid: true };
+};
+
+/**
  * Generate a simple hash of user/device identifier for rate limiting
  */
 export const generateDeviceHash = (): string => {
@@ -205,6 +247,7 @@ export const checkRateLimit = (): {
  */
 export const detectSuspiciousActivity = (params: {
   qrId?: string;
+  url?: string;
   referer?: string;
   rapidRequests?: boolean;
 }): { suspicious: boolean; score: number; reasons: string[] } => {
@@ -227,6 +270,21 @@ export const detectSuspiciousActivity = (params: {
 
     // Common bot QR patterns
     if (/^(test|bot|admin|root|demo[\d]+)$/i.test(params.qrId)) {
+      score += 1;
+      reasons.push('Known bot pattern detected');
+    }
+  }
+
+  // Check for unusual URL token patterns
+  if (params.url) {
+    // Extremely long URL token
+    if (params.url.length > 80) {
+      score += 2;
+      reasons.push('URL token exceeds normal length');
+    }
+
+    // Common bot URL patterns
+    if (/^(test|bot|admin|root|demo[\d]+)$/i.test(params.url)) {
       score += 1;
       reasons.push('Known bot pattern detected');
     }

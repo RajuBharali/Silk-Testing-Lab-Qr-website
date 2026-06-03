@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import {
   validateQrId,
+  validateUrlToken,
   checkRateLimit,
   detectSuspiciousActivity,
   createRequestSignature,
@@ -26,6 +27,7 @@ export interface SecurityCheckResult {
  */
 export const useVerifyPageSecurity = (
   qrId: string | null,
+  url: string | null,
   enabled: boolean = true
 ): SecurityCheckResult & { loading: boolean } => {
   const [result, setResult] = useState<SecurityCheckResult & { loading: boolean }>({
@@ -37,7 +39,20 @@ export const useVerifyPageSecurity = (
   });
 
   useEffect(() => {
-    if (!enabled || !qrId) return;
+    // If not enabled, or neither qrId nor url is provided, skip checks
+    if (!enabled || (!qrId && !url)) return;
+
+    // Skip security checks for preview/demo modes
+    if (qrId === 'preview' || qrId === 'demo') {
+      setResult({
+        passed: true,
+        rateLimitOk: true,
+        qrIdValid: true,
+        notSuspicious: true,
+        loading: false,
+      });
+      return;
+    }
 
     const performSecurityChecks = async () => {
       setResult((prev) => ({ ...prev, loading: true }));
@@ -46,6 +61,8 @@ export const useVerifyPageSecurity = (
         const config = getSecurityConfig();
         let passed = true;
         const messages: string[] = [];
+        let qrValidation = { valid: true, reason: undefined as string | undefined };
+        let urlValidation = { valid: true, reason: undefined as string | undefined };
 
         // 1. Check rate limiting
         const rateLimitCheck = checkRateLimit();
@@ -54,18 +71,30 @@ export const useVerifyPageSecurity = (
           messages.push(rateLimitCheck.reason || 'Rate limit exceeded');
         }
 
-        // 2. Validate QR ID format
-        const qrValidation = validateQrId(qrId);
-        if (!qrValidation.valid) {
-          passed = false;
-          messages.push(qrValidation.reason || 'Invalid QR ID');
+        // 2. Validate QR ID format if provided
+        if (qrId) {
+          qrValidation = validateQrId(qrId);
+          if (!qrValidation.valid) {
+            passed = false;
+            messages.push(qrValidation.reason || 'Invalid QR ID');
+          }
         }
 
-        // 3. Detect suspicious patterns
+        // 3. Validate URL token format if provided
+        if (url) {
+          urlValidation = validateUrlToken(url);
+          if (!urlValidation.valid) {
+            passed = false;
+            messages.push(urlValidation.reason || 'Invalid URL token');
+          }
+        }
+
+        // 4. Detect suspicious patterns
         let suspiciousCheck: { suspicious: boolean; score: number; reasons: string[] } = { suspicious: false, score: 0, reasons: [] };
-        if (qrValidation.valid) {
+        if (qrValidation.valid && urlValidation.valid) {
           suspiciousCheck = detectSuspiciousActivity({
-            qrId,
+            qrId: qrId || undefined,
+            url: url || undefined,
             referer: typeof document !== 'undefined' ? document.referrer : undefined,
           });
 
@@ -75,13 +104,15 @@ export const useVerifyPageSecurity = (
           }
         }
 
-        // 4. Create request signature
-        const signature = qrValidation.valid ? createRequestSignature(qrId) : undefined;
+        // 5. Create request signature
+        const signatureIdentifier = qrId || url || 'default';
+        const signature = (qrValidation.valid && urlValidation.valid) ? createRequestSignature(signatureIdentifier) : undefined;
 
         // Log security check details (for debugging)
         if (config.enableStrictMode && suspiciousCheck.score > 0) {
           console.warn('[Security] Suspicious activity detected:', {
             qrId,
+            url,
             score: suspiciousCheck.score,
             reasons: suspiciousCheck.reasons,
           });
@@ -90,7 +121,7 @@ export const useVerifyPageSecurity = (
         setResult({
           passed,
           rateLimitOk: rateLimitCheck.allowed,
-          qrIdValid: qrValidation.valid,
+          qrIdValid: qrValidation.valid && urlValidation.valid,
           notSuspicious: !suspiciousCheck.suspicious,
           message: messages.length > 0 ? messages.join(' | ') : undefined,
           signature,
@@ -111,7 +142,7 @@ export const useVerifyPageSecurity = (
     };
 
     performSecurityChecks();
-  }, [qrId, enabled]);
+  }, [qrId, url, enabled]);
 
   return result;
 };
